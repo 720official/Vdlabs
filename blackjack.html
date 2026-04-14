@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Blackjack</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --felt-green: #1a6b35;
+    --felt-dark: #0f4a24;
+    --felt-light: #2a8a47;
+    --wood-dark: #3e1f05;
+    --wood-mid: #6b3a10;
+    --wood-light: #a0582a;
+    --gold: #f0c040;
+    --gold-dark: #c8972a;
+    --card-white: #f9f5ec;
+    --red: #cc2200;
+    --black-card: #1a1a1a;
+    --gta-money: #73e840;
+    --gta-money-shadow: #1a6600;
+    --gta-coin: #f0c040;
+    --gta-coin-shadow: #805000;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Oswald', sans-serif;
+    background: #0a0a0a;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* TABLE */
+  #table-wrap {
+    width: 820px;
+    height: 580px;
+    position: relative;
+    border-radius: 300px / 200px;
+    background: radial-gradient(ellipse 60% 55% at 50% 50%, var(--felt-light) 0%, var(--felt-green) 40%, var(--felt-dark) 100%);
+    box-shadow:
+      0 0 0 18px var(--wood-mid),
+      0 0 0 28px var(--wood-dark),
+      0 0 0 32px var(--wood-light),
+      0 0 0 44px var(--wood-dark),
+      0 30px 80px rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  #table-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 300px / 200px;
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none;
+  }
+  #table-wrap::after {
+    content: '';
+    position: absolute;
+    inset: 20px;
+    border-radius: 280px / 180px;
+    border: 2px solid rgba(255,255,255,0.07);
+    pointer-events: none;
+  }
+
+  /* GTA HUD — top right inside table */
+  #money-hud {
+    position: absolute;
+    top: 24px;
+    right: 52px;
+    text-align: right;
+    z-index: 20;
+    pointer-events: none;
+  }
+  .hud-row { margin-bottom: 1px; }
+  .hud-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    display: block;
+  }
+  .hud-amount {
+    font-family: 'Bebas Neue', sans-serif;
+    line-height: 1;
+    display: block;
+    letter-spacing: 2px;
+  }
+  .hud-money .hud-label { color: rgba(115,232,64,0.65); }
+  .hud-money .hud-amount { font-size: 38px; color: var(--gta-money); text-shadow: 2px 2px 0 var(--gta-money-shadow), 0 0 18px rgba(115,232,64,0.35); }
+  .hud-money .hud-amount::before { content: '$'; font-size: 22px; vertical-align: super; margin-right: 1px; }
+  .hud-coins .hud-label { color: rgba(240,192,64,0.65); }
+  .hud-coins .hud-amount { font-size: 28px; color: var(--gta-coin); text-shadow: 2px 2px 0 var(--gta-coin-shadow), 0 0 14px rgba(240,192,64,0.3); }
+  .hud-coins .hud-amount::before { content: '⬡ '; font-size: 15px; vertical-align: middle; }
+
+  /* HOME button — top left inside table */
+  #home-btn {
+    position: absolute;
+    top: 24px;
+    left: 52px;
+    z-index: 20;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    color: rgba(255,255,255,0.7);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 14px;
+    letter-spacing: 3px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: none;
+  }
+  #home-btn:hover { background: rgba(0,0,0,0.65); color: #fff; border-color: rgba(255,255,255,0.3); }
+
+  /* SCREENS */
+  .screen { display: none; flex-direction: column; align-items: center; width: 100%; }
+  .screen.active { display: flex; }
+
+  /* ── SHOP SCREEN ── */
+  #shop-screen { gap: 13px; padding: 18px 30px; }
+  #shop-screen h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 34px;
+    letter-spacing: 6px;
+    color: var(--gold);
+    text-shadow: 2px 2px 0 var(--gold-dark), 0 0 20px rgba(240,192,64,0.35);
+  }
+  .shop-subtitle {
+    font-size: 12px;
+    letter-spacing: 3px;
+    color: rgba(255,255,255,0.4);
+    margin-top: -6px;
+  }
+
+  #coin-stack-display {
+    position: relative;
+    height: 74px;
+    width: 110px;
+    margin: 0 auto;
+  }
+  .coin-layer {
+    position: absolute;
+    width: 76px;
+    height: 18px;
+    left: 17px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, #f5d060 30%, #c8900a 100%);
+    border: 2px solid #a07010;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+    transition: all 0.25s ease;
+  }
+
+  .shop-row { display: flex; align-items: center; gap: 10px; }
+  .shop-row label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 14px;
+    letter-spacing: 3px;
+    color: rgba(255,255,255,0.5);
+  }
+  .amount-control {
+    display: flex;
+    align-items: center;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .amount-control button {
+    background: rgba(0,0,0,0.3);
+    border: none;
+    color: var(--gold);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    width: 34px;
+    height: 34px;
+    cursor: pointer;
+    transition: background 0.12s;
+    line-height: 1;
+  }
+  .amount-control button:hover { background: rgba(240,192,64,0.18); }
+  .amount-control span {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    color: #fff;
+    min-width: 76px;
+    text-align: center;
+    padding: 0 8px;
+  }
+
+  .shop-btns { display: flex; gap: 10px; }
+  .shop-action-btn {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 14px;
+    letter-spacing: 3px;
+    padding: 9px 18px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  #add-chips-btn {
+    background: linear-gradient(180deg, #f0c040 0%, #b07010 100%);
+    border-bottom: 3px solid #704000;
+    color: #1a0800;
+  }
+  #add-chips-btn:hover { filter: brightness(1.1); }
+  #add-money-btn {
+    background: linear-gradient(180deg, #60d030 0%, #207010 100%);
+    border-bottom: 3px solid #104000;
+    color: #fff;
+  }
+  #add-money-btn:hover { filter: brightness(1.1); }
+  .shop-action-btn:active { transform: translateY(2px); border-bottom-width: 1px; }
+
+  #confirm-btn {
+    background: linear-gradient(180deg, #f0c040 0%, #c07010 100%);
+    border: none;
+    border-bottom: 4px solid #804000;
+    color: #1a0800;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 4px;
+    padding: 11px 48px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.1s;
+    box-shadow: 0 4px 14px rgba(240,192,64,0.3);
+  }
+  #confirm-btn:hover { filter: brightness(1.08); }
+  #confirm-btn:active { transform: translateY(2px); border-bottom-width: 2px; }
+
+  /* ── GAME SCREEN ── */
+  #game-screen {
+    justify-content: space-between;
+    height: 100%;
+    padding: 14px 30px 18px;
+  }
+  .game-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 8px;
+    color: rgba(255,255,255,0.18);
+    text-align: center;
+  }
+  .dealer-zone, .player-zone {
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+  }
+  .zone-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px; letter-spacing: 4px; color: rgba(255,255,255,0.35);
+  }
+  .score-badge {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px; color: var(--gold);
+    text-shadow: 1px 1px 0 var(--gold-dark); min-height: 24px;
+  }
+  .cards-row {
+    display: flex; gap: 10px; justify-content: center;
+    align-items: flex-end; min-height: 100px;
+  }
+
+  /* CARDS */
+  .card-wrap { width: 64px; height: 90px; perspective: 500px; opacity: 0; }
+  @keyframes dealIn {
+    from { opacity: 0; transform: translateY(-22px) scale(0.88); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .card-wrap.visible { animation: dealIn 0.26s ease forwards; }
+  .card-inner {
+    width: 100%; height: 100%; position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.46s cubic-bezier(0.4,0,0.2,1);
+  }
+  .card-wrap.flipped .card-inner { transform: rotateY(180deg); }
+  .card-face, .card-back {
+    position: absolute; inset: 0; border-radius: 8px;
+    backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  }
+  .card-face {
+    background: var(--card-white); border: 1px solid #ddd;
+    box-shadow: 2px 3px 10px rgba(0,0,0,0.5);
+    display: flex; flex-direction: column;
+    justify-content: space-between; padding: 5px 6px;
+    transform: rotateY(180deg);
+  }
+  .card-back {
+    background: repeating-linear-gradient(45deg, #0e3cad 0px, #0e3cad 4px, #1a52c8 4px, #1a52c8 8px);
+    border: 2px solid #fff; box-shadow: 2px 3px 10px rgba(0,0,0,0.5);
+  }
+  .card-corner { line-height: 1.1; }
+  .card-corner.bottom { align-self: flex-end; transform: rotate(180deg); }
+  .card-val { font-family: 'Bebas Neue', sans-serif; font-size: 18px; line-height: 1; }
+  .card-suit { font-size: 13px; line-height: 1; }
+  .red-card .card-val, .red-card .card-suit { color: var(--red); }
+  .black-card .card-val, .black-card .card-suit { color: var(--black-card); }
+
+  /* Bet row */
+  .bet-row { display: flex; align-items: center; gap: 10px; }
+  .bet-row label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 14px; letter-spacing: 3px; color: rgba(255,255,255,0.4);
+  }
+  .bet-control {
+    display: flex; align-items: center;
+    background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 5px; overflow: hidden;
+  }
+  .bet-control button {
+    background: rgba(0,0,0,0.3); border: none; color: var(--gold);
+    font-family: 'Bebas Neue', sans-serif; font-size: 18px;
+    width: 30px; height: 32px; cursor: pointer; transition: background 0.12s;
+  }
+  .bet-control button:hover { background: rgba(240,192,64,0.18); }
+  .bet-control input {
+    background: transparent; border: none; color: #fff;
+    font-family: 'Bebas Neue', sans-serif; font-size: 20px;
+    width: 70px; text-align: center; outline: none;
+  }
+  #deal-btn {
+    background: linear-gradient(180deg, #f0c040 0%, #c07010 100%);
+    border: none; border-bottom: 3px solid #804000; color: #1a0800;
+    font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 3px;
+    padding: 8px 20px; border-radius: 5px; cursor: pointer; transition: all 0.1s;
+  }
+  #deal-btn:hover { filter: brightness(1.1); }
+  #deal-btn:active { transform: translateY(2px); border-bottom-width: 1px; }
+  #deal-btn:disabled { background: #555; border-bottom-color: #333; color: #888; cursor: not-allowed; filter: none; }
+
+  #status-msg {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px; letter-spacing: 4px; color: #fff;
+    min-height: 26px; text-align: center;
+  }
+  #status-msg.win  { color: var(--gta-money); text-shadow: 0 0 14px rgba(115,232,64,0.6); }
+  #status-msg.lose { color: #ff4422; text-shadow: 0 0 14px rgba(255,60,20,0.6); }
+  #status-msg.push { color: var(--gold); }
+
+  .action-row { display: flex; gap: 16px; }
+  .action-btn {
+    font-family: 'Bebas Neue', sans-serif; font-size: 22px;
+    letter-spacing: 4px; padding: 11px 38px;
+    border: none; border-radius: 6px; cursor: pointer; transition: all 0.1s;
+  }
+  #hit-btn {
+    background: linear-gradient(180deg, #f0c040 0%, #c07010 100%);
+    border-bottom: 4px solid #804000; color: #1a0800;
+    box-shadow: 0 4px 14px rgba(240,192,64,0.3);
+  }
+  #hit-btn:hover { filter: brightness(1.1); }
+  #stand-btn {
+    background: linear-gradient(180deg, #e04020 0%, #901000 100%);
+    border-bottom: 4px solid #600800; color: #fff;
+    box-shadow: 0 4px 14px rgba(200,40,10,0.3);
+  }
+  #stand-btn:hover { filter: brightness(1.12); }
+  .action-btn:active { transform: translateY(2px); border-bottom-width: 2px; }
+  .action-btn:disabled {
+    background: #444 !important; border-bottom-color: #222 !important;
+    color: #666 !important; cursor: not-allowed; box-shadow: none !important; filter: none !important;
+  }
+  .felt-divider {
+    width: 58%; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  }
+
+  /* MODAL */
+  #modal-overlay {
+    display: none; position: absolute; inset: 0;
+    border-radius: 300px / 200px;
+    background: rgba(0,0,0,0.65);
+    z-index: 30; align-items: center; justify-content: center;
+  }
+  #modal-overlay.open { display: flex; }
+  .modal-box {
+    background: linear-gradient(160deg, #1a4a2a, #0d2a16);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 12px;
+    padding: 28px 36px; display: flex; flex-direction: column;
+    gap: 16px; align-items: center; box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+    min-width: 260px;
+  }
+  .modal-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px; letter-spacing: 5px; color: var(--gold);
+    text-shadow: 1px 1px 0 var(--gold-dark);
+  }
+  .modal-input {
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px; color: #fff; font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px; letter-spacing: 2px; width: 100%;
+    text-align: center; padding: 8px 12px; outline: none;
+  }
+  .modal-input:focus { border-color: var(--gold); }
+  .modal-row { display: flex; gap: 10px; width: 100%; }
+  .modal-ok {
+    flex: 1; background: linear-gradient(180deg, #f0c040 0%, #b07010 100%);
+    border: none; border-bottom: 3px solid #704000; color: #1a0800;
+    font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 3px;
+    padding: 9px 0; border-radius: 6px; cursor: pointer; transition: all 0.1s;
+  }
+  .modal-ok:hover { filter: brightness(1.1); }
+  .modal-no {
+    flex: 1; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.6); font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px; letter-spacing: 3px; padding: 9px 0; border-radius: 6px;
+    cursor: pointer; transition: all 0.1s;
+  }
+  .modal-no:hover { background: rgba(0,0,0,0.55); color: #fff; }
+</style>
+</head>
+<body>
+<div id="table-wrap">
+
+  <!-- HUD inside table -->
+  <div id="money-hud">
+    <div class="hud-row hud-money">
+      <span class="hud-label">WALLET</span>
+      <span class="hud-amount" id="hud-wallet">0</span>
+    </div>
+    <div class="hud-row hud-coins">
+      <span class="hud-label">CHIPS</span>
+      <span class="hud-amount" id="hud-chips">0</span>
+    </div>
+  </div>
+
+  <!-- Home button inside table -->
+  <button id="home-btn">⌂ HOME</button>
+
+  <!-- Modal -->
+  <div id="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-title" id="modal-title">ADD CHIPS</div>
+      <input class="modal-input" type="number" id="modal-input" min="1" placeholder="0">
+      <div class="modal-row">
+        <button class="modal-ok" id="modal-ok">CONFIRM</button>
+        <button class="modal-no" id="modal-no">CANCEL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHOP SCREEN -->
+  <div class="screen active" id="shop-screen">
+    <h1>♠ BLACKJACK ♣</h1>
+    <div class="shop-subtitle">BUY YOUR CHIPS TO PLAY</div>
+    <div id="coin-stack-display"></div>
+    <div class="shop-row">
+      <label>CHIPS</label>
+      <div class="amount-control">
+        <button id="chips-minus">−</button>
+        <span id="chips-display">500</span>
+        <button id="chips-plus">+</button>
+      </div>
+    </div>
+    <div class="shop-btns">
+      <button class="shop-action-btn" id="add-chips-btn">⬡ ADD CHIPS</button>
+      <button class="shop-action-btn" id="add-money-btn">$ ADD MONEY</button>
+    </div>
+    <button id="confirm-btn">CONFIRM →</button>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div class="screen" id="game-screen">
+    <div class="game-title">♠ BLACKJACK ♣ 21</div>
+    <div class="dealer-zone">
+      <div class="zone-label">DEALER</div>
+      <div class="cards-row" id="dealer-cards"></div>
+      <div class="score-badge" id="dealer-score"></div>
+    </div>
+    <div class="felt-divider"></div>
+    <div id="status-msg"></div>
+    <div class="bet-row">
+      <label>BET</label>
+      <div class="bet-control">
+        <button id="bet-minus">−</button>
+        <input type="number" id="bet-input" value="100" min="1">
+        <button id="bet-plus">+</button>
+      </div>
+      <button id="deal-btn">DEAL</button>
+    </div>
+    <div class="felt-divider"></div>
+    <div class="player-zone">
+      <div class="cards-row" id="player-cards"></div>
+      <div class="score-badge" id="player-score"></div>
+      <div class="zone-label">YOU</div>
+    </div>
+    <div class="action-row">
+      <button class="action-btn" id="hit-btn" disabled>HIT</button>
+      <button class="action-btn" id="stand-btn" disabled>STAND</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── STATE ──
+let wallet   = parseInt(localStorage.getItem('bjWallet') || '0');
+let chips    = parseInt(localStorage.getItem('bjChips')  || '0');
+let deck = [], playerHand = [], dealerHand = [];
+let bet = 100, gameActive = false, animating = false;
+let shopAmt = 500;
+
+// ── REFS ──
+const hudWallet    = document.getElementById('hud-wallet');
+const hudChipsEl   = document.getElementById('hud-chips');
+const homeBtn      = document.getElementById('home-btn');
+const shopScreen   = document.getElementById('shop-screen');
+const gameScreen   = document.getElementById('game-screen');
+const chipsDisp    = document.getElementById('chips-display');
+const coinStackEl  = document.getElementById('coin-stack-display');
+const confirmBtn   = document.getElementById('confirm-btn');
+const dealerCardsEl= document.getElementById('dealer-cards');
+const playerCardsEl= document.getElementById('player-cards');
+const dealerScoreEl= document.getElementById('dealer-score');
+const playerScoreEl= document.getElementById('player-score');
+const statusMsg    = document.getElementById('status-msg');
+const dealBtn      = document.getElementById('deal-btn');
+const hitBtn       = document.getElementById('hit-btn');
+const standBtn     = document.getElementById('stand-btn');
+const betInput     = document.getElementById('bet-input');
+const modalOverlay = document.getElementById('modal-overlay');
+const modalTitle   = document.getElementById('modal-title');
+const modalInput   = document.getElementById('modal-input');
+const modalOk      = document.getElementById('modal-ok');
+const modalNo      = document.getElementById('modal-no');
+
+// ── PERSIST ──
+function save() {
+  localStorage.setItem('bjWallet', wallet);
+  localStorage.setItem('bjChips', chips);
+}
+function updateHUD() {
+  hudWallet.textContent = wallet.toLocaleString();
+  hudChipsEl.textContent = chips.toLocaleString();
+}
+updateHUD();
+
+// ── COIN STACK ──
+function drawStack(n) {
+  coinStackEl.innerHTML = '';
+  const layers = Math.min(Math.max(Math.floor(n / 200), 1), 8);
+  for (let i = 0; i < layers; i++) {
+    const d = document.createElement('div');
+    d.className = 'coin-layer';
+    d.style.bottom = (i * 9) + 'px';
+    coinStackEl.appendChild(d);
+  }
+}
+drawStack(shopAmt);
+
+document.getElementById('chips-minus').onclick = () => {
+  shopAmt = Math.max(100, shopAmt - 100);
+  chipsDisp.textContent = shopAmt;
+  drawStack(shopAmt);
+};
+document.getElementById('chips-plus').onclick = () => {
+  shopAmt = Math.min(10000, shopAmt + 100);
+  chipsDisp.textContent = shopAmt;
+  drawStack(shopAmt);
+};
+
+// ── MODAL ──
+let modalMode = 'chips';
+function openModal(mode) {
+  modalMode = mode;
+  modalTitle.textContent = mode === 'chips' ? 'ADD CHIPS' : 'ADD MONEY';
+  modalInput.value = '';
+  modalInput.placeholder = mode === 'chips' ? 'amount' : '$ amount';
+  modalOverlay.classList.add('open');
+  setTimeout(() => modalInput.focus(), 60);
+}
+function closeModal() { modalOverlay.classList.remove('open'); }
+
+document.getElementById('add-chips-btn').onclick = () => openModal('chips');
+document.getElementById('add-money-btn').onclick = () => openModal('money');
+modalNo.onclick = closeModal;
+modalOk.onclick = () => {
+  const v = parseInt(modalInput.value) || 0;
+  if (v > 0) {
+    if (modalMode === 'chips') chips += v;
+    else wallet += v;
+    save(); updateHUD();
+  }
+  closeModal();
+};
+
+// ── CONFIRM / SCREENS ──
+confirmBtn.onclick = () => {
+  chips += shopAmt;
+  save(); updateHUD();
+  toGame();
+};
+function toGame() {
+  shopScreen.classList.remove('active');
+  gameScreen.classList.add('active');
+  homeBtn.style.display = 'block';
+  bet = Math.min(100, chips);
+  betInput.value = bet;
+  setStatus('', '');
+  dealerCardsEl.innerHTML = '';
+  playerCardsEl.innerHTML = '';
+  dealerScoreEl.textContent = '';
+  playerScoreEl.textContent = '';
+}
+function toShop() {
+  if (gameActive) return;
+  gameScreen.classList.remove('active');
+  shopScreen.classList.add('active');
+  homeBtn.style.display = 'none';
+  shopAmt = 500; chipsDisp.textContent = shopAmt; drawStack(shopAmt);
+}
+homeBtn.onclick = toShop;
+
+// ── BET ──
+document.getElementById('bet-minus').onclick = () => {
+  bet = Math.max(1, (parseInt(betInput.value)||1) - 50);
+  betInput.value = bet;
+};
+document.getElementById('bet-plus').onclick = () => {
+  bet = Math.min(chips, (parseInt(betInput.value)||1) + 50);
+  betInput.value = bet;
+};
+betInput.oninput = () => { bet = Math.min(chips, Math.max(1, parseInt(betInput.value)||1)); };
+
+// ── DECK ──
+function buildDeck() {
+  const S = ['♠','♥','♦','♣'], V = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+  deck = [];
+  for (let s of S) for (let v of V) deck.push({v, s});
+  deck.sort(() => Math.random() - 0.5);
+}
+function cVal(c) {
+  if (c.v === 'A') return 11;
+  if (['K','Q','J'].includes(c.v)) return 10;
+  return parseInt(c.v);
+}
+function hVal(hand) {
+  let t = 0, a = 0;
+  for (let c of hand) { t += cVal(c); if (c.v === 'A') a++; }
+  while (t > 21 && a-- > 0) t -= 10;
+  return t;
+}
+
+// ── CARD DOM ──
+function isRed(s) { return s === '♥' || s === '♦'; }
+
+function mkCard(card, faceDown) {
+  const wrap = document.createElement('div');
+  wrap.className = 'card-wrap';
+  wrap._fd = faceDown;
+
+  const inner = document.createElement('div');
+  inner.className = 'card-inner';
+
+  const back = document.createElement('div');
+  back.className = 'card-back';
+
+  const face = document.createElement('div');
+  face.className = 'card-face ' + (isRed(card.s) ? 'red-card' : 'black-card');
+
+  const t = document.createElement('div'); t.className = 'card-corner';
+  t.innerHTML = `<div class="card-val">${card.v}</div><div class="card-suit">${card.s}</div>`;
+  const b = document.createElement('div'); b.className = 'card-corner bottom';
+  b.innerHTML = `<div class="card-val">${card.v}</div><div class="card-suit">${card.s}</div>`;
+
+  face.appendChild(t); face.appendChild(b);
+  inner.appendChild(back); inner.appendChild(face);
+  wrap.appendChild(inner);
+  return wrap;
+}
+
+// Animate one card: deal-in slide + flip. Returns promise that resolves when done.
+function animCard(wrap, container, faceDown) {
+  return new Promise(resolve => {
+    container.appendChild(wrap);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        wrap.classList.add('visible');           // trigger dealIn (260ms)
+        if (!faceDown) {
+          setTimeout(() => {
+            wrap.classList.add('flipped');       // flip (460ms transition)
+            setTimeout(resolve, 480);
+          }, 220);
+        } else {
+          setTimeout(resolve, 280);             // just deal-in, no flip
+        }
+      });
+    });
+  });
+}
+
+// Flip an existing face-down card
+function revealCard(wrap) {
+  return new Promise(resolve => {
+    wrap.classList.add('flipped');
+    setTimeout(resolve, 500);
+  });
+}
+
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── DEAL ──
+dealBtn.onclick = async () => {
+  if (gameActive || animating) return;
+  bet = Math.max(1, parseInt(betInput.value) || 1);
+  if (bet > chips) { setStatus('Not enough chips!', ''); return; }
+
+  buildDeck();
+  playerHand = [deck.pop(), deck.pop()];
+  dealerHand = [deck.pop(), deck.pop()];
+  chips -= bet; save(); updateHUD();
+
+  gameActive = true; animating = true;
+  hitBtn.disabled = true; standBtn.disabled = true; dealBtn.disabled = true;
+  setStatus('', '');
+  dealerCardsEl.innerHTML = ''; playerCardsEl.innerHTML = '';
+  dealerScoreEl.textContent = ''; playerScoreEl.textContent = '';
+
+  // Deal one at a time: p1, d1, p2, d2(hidden)
+  await animCard(mkCard(playerHand[0], false), playerCardsEl, false);
+  await animCard(mkCard(dealerHand[0], false), dealerCardsEl, false);
+  await animCard(mkCard(playerHand[1], false), playerCardsEl, false);
+  await animCard(mkCard(dealerHand[1], true),  dealerCardsEl, true);
+
+  playerScoreEl.textContent = hVal(playerHand);
+  dealerScoreEl.textContent = cVal(dealerHand[0]);
+  setStatus('Good luck! 🍀', '');
+  animating = false;
+
+  if (hVal(playerHand) === 21) { await standFlow(); return; }
+  hitBtn.disabled = false; standBtn.disabled = false;
+};
+
+// ── HIT ──
+hitBtn.onclick = async () => {
+  if (!gameActive || animating) return;
+  animating = true; hitBtn.disabled = true; standBtn.disabled = true;
+
+  const nc = deck.pop(); playerHand.push(nc);
+  await animCard(mkCard(nc, false), playerCardsEl, false);
+  playerScoreEl.textContent = hVal(playerHand);
+
+  if (hVal(playerHand) > 21) {
+    await endRound('BUST! You lose 💀', 'lose');
+  } else {
+    animating = false; hitBtn.disabled = false; standBtn.disabled = false;
+  }
+};
+
+// ── STAND ──
+standBtn.onclick = async () => {
+  if (!gameActive || animating) return;
+  animating = true; hitBtn.disabled = true; standBtn.disabled = true;
+  await standFlow();
+};
+
+async function standFlow() {
+  // Reveal hidden dealer card
+  const hidden = dealerCardsEl.querySelector('.card-wrap:last-child');
+  if (hidden) await revealCard(hidden);
+  dealerScoreEl.textContent = hVal(dealerHand);
+
+  // Dealer draws to 17
+  while (hVal(dealerHand) < 17) {
+    const nc = deck.pop(); dealerHand.push(nc);
+    await animCard(mkCard(nc, false), dealerCardsEl, false);
+    dealerScoreEl.textContent = hVal(dealerHand);
+  }
+
+  const p = hVal(playerHand), d = hVal(dealerHand);
+  if (d > 21 || p > d) {
+    chips += bet * 2; save(); updateHUD();
+    await endRound('YOU WIN! 🤑', 'win');
+  } else if (p === d) {
+    chips += bet; save(); updateHUD();
+    await endRound('PUSH 🤝', 'push');
+  } else {
+    await endRound('DEALER WINS 😔', 'lose');
+  }
+}
+
+async function endRound(msg, type) {
+  gameActive = false; animating = false;
+  dealBtn.disabled = false;
+  setStatus(msg, type);
+  if (chips <= 0) { await wait(1800); toShop(); }
+}
+
+function setStatus(msg, type) {
+  statusMsg.textContent = msg;
+  statusMsg.className = '';
+  if (type) statusMsg.classList.add(type);
+}
+</script>
+</body>
+</html>
